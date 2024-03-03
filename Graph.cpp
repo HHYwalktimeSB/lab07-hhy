@@ -24,6 +24,7 @@ NodeInfo::NodeInfo(string activationFunction, double value, double bias) {
 double NodeInfo::activate() {
     postActivationValue = activationFunction(preActivationValue);
     return postActivationValue;
+    
 }
 
 double NodeInfo::derive() {
@@ -89,37 +90,49 @@ std::ostream& operator<<(std::ostream& out, const Connection& c) {
 
 // Graph -----------------------------------------------------------------------------------------------------------------------------------
 
+NodeInfo* _allocate_constructN(NodeInfo&& n){
+    auto _x = new NodeInfo();
+    *_x = ::std::move(n);
+    return _x;
+}
+
 // STUDENT TODO: IMPLEMENT
 void Graph::updateNode(int id, NodeInfo n) {
-    if (true /* stub condition: change this to the correct condition*/) {
+    if (id>=nodes.size()) {
         cout << "Attempting to update node with id: " << id << " but node does not exist" << endl;
         return;
     }
-
+    nodes[id] = _allocate_constructN(::std::move(n));
     return; //stub
 }
 
 // STUDENT TODO: IMPLEMENT
 NodeInfo* Graph::getNode(int id) const {
-    return nullptr; //stub
+    return this->nodes[id]; //stub
 }
+
+#define IS_INVALID_ID(_ID)  _ID>=nodes.size()
 
 // STUDENT TODO: IMPLEMENT
 void Graph::updateConnection(int v, int u, double w) {
-    if (true /* stub condition: change this to the correct condition*/) {
+    if (IS_INVALID_ID(v)) {
         cerr << "Attempting to update connection between " << v << " and " << u << " with weight " << w << " but " << v << " does not exist" << endl;
         exit(1);
     }
-    if (true /* stub condition: change this to the correct condition*/) {
+    if (IS_INVALID_ID(u)) {
         cerr << "Attempting to update connection between " << v << " and " << u << " with weight " << w << " but " << u << " does not exist" << endl;
         exit(1);
     }
+    adjacencyList[v].insert_or_assign(u, Connection(v,u,w));
     
     return; //stub
 }
 
 // STUDENT TODO: IMPLEMENT
 void Graph::clear() {
+    for(auto a: nodes){
+        if(a)delete a;
+    }
     return; //stub
 }
 

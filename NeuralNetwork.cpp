@@ -8,37 +8,43 @@ using namespace std;
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::eval() {
-    //stub
+    this->evaluating = true;
 }
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::train() {
+    this->evaluating = false   ;
     //stub
 }
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::setLearningRate(double lr) {
+    this->learningRate = lr;
     //stub
 }
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::setInputNodeIds(std::vector<int> inputNodeIds) {
+    this->inputNodeIds = inputNodeIds;
+    //if(this->layers.size()>0)this->layers[0] = ::std::move(inputNodeIds);
+    //else this->layers.push_back( ::std::move(inputNodeIds));
     //stub
 }
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::setOutputNodeIds(std::vector<int> outputNodeIds) {
     //stub
+    this->outputNodeIds = outputNodeIds;
 }
 
 // STUDENT TODO: IMPLEMENT
 vector<int> NeuralNetwork::getInputNodeIds() const {
-    return vector<int>(); //stub
+    return this->inputNodeIds ; //stub
 }
 
 // STUDENT TODO: IMPLEMENT
 vector<int> NeuralNetwork::getOutputNodeIds() const {
-    return vector<int>(); //stub
+    return this->outputNodeIds; //stub
 }
 
 // STUDENT TODO: IMPLEMENT
@@ -55,11 +61,38 @@ vector<double> NeuralNetwork::predict(DataInstance instance) {
     }
 
     // BFT implementation goes here
+    queue<int> q;
+    std::vector<bool>_visited;
+    _visited.resize(this->getNodes().size(),false);
+
+    for(auto a:this->inputNodeIds){
+        q.push(a);
+        nodes[a]->preActivationValue = input.front();
+        input.erase(input.begin(), input.begin()+1);
+        _visited[a] = true;
+    }
 
     // 1. Set up your queue initialization
     // 2. Start visiting nodes using the queue
 
-    vector<double> output;
+    while (!q.empty())
+    {
+        auto _elem = q.front();
+        q.pop();
+        visitPredictNode(_elem);
+        for(const auto& _x: this->adjacencyList[_elem])
+        {
+            if(!_visited[_x.first ]){
+                q.push(_x.first);
+                _visited[_x.first] = true;
+            }
+            visitPredictNeighbor(_x.second);
+        }
+        //visit
+        _visited[_elem] = true;
+   }
+
+   vector<double> output;
     for (int i = 0; i < outputNodeIds.size(); i++) {
         int dest = outputNodeIds.at(i);
         NodeInfo* outputNode = nodes.at(dest);
@@ -74,6 +107,7 @@ vector<double> NeuralNetwork::predict(DataInstance instance) {
         // accumulate derivatives. If in training mode, weights and biases get accumulated
         contribute(instance.y, output.at(0));
     }
+
     return output;
 }
 // STUDENT TODO: IMPLEMENT
@@ -86,12 +120,21 @@ bool NeuralNetwork::contribute(double y, double p) {
     // find each incoming contribution, and contribute to the input layer's outgoing weights
     // If the node is already found, use its precomputed contribution from the contributions map
     // There is no need to visitContributeNode for the input layer since there is no bias to update.
-
+    for(auto a: this->inputNodeIds){
+        contribute(a, y,p);
+    }
 
     flush();
 
     return true;
 }
+
+template<class Container, class Ty>
+bool find_in_container(const Container&c, const Ty&_val){
+    for(const auto &a:c){ if(a == _val)return true;}
+    return false;
+}
+
 // STUDENT TODO: IMPLEMENT
 double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
 
@@ -102,12 +145,26 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
     // find each incoming contribution, and contribute to the nodes outgoing weights
     // If the node is already found, use its precomputed contribution from the contributions map
 
+    for(auto& a: this->adjacencyList[nodeId]){
+        incomingContribution = contributions.find(a.first)!=contributions.end() ? 
+        contributions.find(a.first)->second : contribute(a.first, y, p);
+        visitContributeNeighbor(a.second, incomingContribution, outgoingContribution);
+    }
+
     if (adjacencyList.at(nodeId).empty()) {
         // base case, we are at the end
         outgoingContribution = -1 * ((y - p) / (p * (1 - p)));
     } 
 
     // Now contribute to yourself and prepare the outgoing contribution
+
+    if(!find_in_container(this->inputNodeIds, nodeId)){
+
+    visitContributeNode(nodeId, outgoingContribution);
+
+    }
+
+    contributions.insert_or_assign(nodeId, outgoingContribution);
 
     return outgoingContribution;
 }
@@ -123,6 +180,12 @@ bool NeuralNetwork::update() {
     // bias update: bias = bias - (learningRate * delta)
     // weight update: weight = weight - (learningRate * delta)
 
+    for(unsigned i=0;i<nodes.size(); ++i){
+        nodes[i]->bias = nodes[i]->bias - (this->learningRate * nodes[i]->delta);
+        for(auto &a:adjacencyList[i]){
+            a.second.weight -= this->learningRate * a.second.delta;
+        }
+    }
     
     flush();
     return true;
